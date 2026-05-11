@@ -86,7 +86,7 @@ PostgreSQL only — no MySQL, SQL Server, or SQLite. Two deployment options:
 One line on a Linux host with Docker:
 
 ```
-curl -fsSL https://openaduc.com/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/OpenADUC/openaduc/main/install.sh | bash
 ```
 
 The installer prompts for an install directory, asks whether to use the bundled Postgres or an existing one, generates strong secrets, and brings the stack up. Open the printed URL to run the first-run setup wizard.
