@@ -1,0 +1,1126 @@
+<!doctype html>
+<html lang="en" class="theme-dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenADUC — Open-source Active Directory Users and Computers, in the browser</title>
+    <meta
+      name="description"
+      content="OpenADUC is an open-source, self-hosted web replacement for the Active Directory Users and Computers MMC snap-in. Manage users, groups, computers, and OUs over LDAPS — with a real audit trail behind every change."
+    />
+    <meta name="theme-color" content="#0a0c12" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/icon-16.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="OpenADUC — Active Directory Users and Computers, in the browser" />
+    <meta
+      property="og:description"
+      content="Open-source, self-hosted web app for AD admins. Find users, reset passwords, manage groups, browse OUs — and audit every change."
+    />
+    <meta property="og:url" content="https://www.openaduc.com/" />
+    <meta property="og:image" content="https://www.openaduc.com/assets/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- Fonts: Geist (sans) + JetBrains Mono — same stack the app uses -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+
+    <style>
+      /* ----------------------------------------------------------------
+       * OpenADUC landing — tokens lifted from the app's design system
+       * (see apps/web/src/design/tokens.css). Dark by default; the same
+       * accent cyan as the wordmark in the product.
+       * ---------------------------------------------------------------- */
+      :root {
+        --accent: #22d3ee;
+        --accent-soft: rgba(34, 211, 238, 0.12);
+        --accent-text: #22d3ee;
+        --accent-contrast: #07080a;
+
+        --bg: #0a0c12;
+        --bg-1: #10131a;
+        --surface: #15181f;
+        --surface-2: #1c2029;
+        --surface-3: #262a35;
+        --hover: rgba(255, 255, 255, 0.05);
+        --border: #2a2f3c;
+        --border-strong: #3a414f;
+        --border-soft: rgba(255, 255, 255, 0.07);
+
+        --text: #ededee;
+        --text-2: #b0b3bd;
+        --text-3: #7d808b;
+        --text-4: #5b5e69;
+
+        --green: #34d399;
+        --amber: #fbbf24;
+        --violet: #a78bfa;
+
+        --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+        --shadow-md:
+          0 1px 0 rgba(255, 255, 255, 0.05) inset,
+          0 8px 24px rgba(0, 0, 0, 0.55),
+          0 2px 6px rgba(0, 0, 0, 0.4);
+        --shadow-lg:
+          0 1px 0 rgba(255, 255, 255, 0.06) inset,
+          0 24px 60px rgba(0, 0, 0, 0.65),
+          0 4px 12px rgba(0, 0, 0, 0.45);
+
+        --bg-atmosphere:
+          radial-gradient(ellipse 70% 60% at 8% 0%, rgba(34, 211, 238, 0.085), transparent 60%),
+          radial-gradient(ellipse 60% 55% at 100% 100%, rgba(251, 146, 96, 0.055), transparent 60%);
+
+        --bg-noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  1 0 0 0 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        font-size: 15px;
+        line-height: 1.55;
+        color: var(--text);
+        background: var(--bg);
+        background-image: var(--bg-atmosphere);
+        background-attachment: fixed;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+        font-feature-settings: 'cv11', 'ss01', 'ss03';
+        position: relative;
+        min-height: 100vh;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image: var(--bg-noise);
+        background-size: 240px 240px;
+        background-repeat: repeat;
+        opacity: 0.045;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .page {
+        position: relative;
+        z-index: 1;
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      ::selection {
+        background: var(--accent-soft);
+        color: var(--text);
+      }
+
+      a {
+        color: var(--accent-text);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      /* ---------- Wordmark (mirrors apps/web .../primitives/Wordmark.vue) ---------- */
+      .wordmark {
+        font-family: var(--font-sans);
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+        line-height: 1;
+        color: inherit;
+        display: inline-flex;
+        align-items: baseline;
+      }
+      .wordmark-prefix {
+        font-weight: 500;
+      }
+      .wordmark-acronym {
+        font-weight: 700;
+        color: var(--accent);
+        letter-spacing: -0.01em;
+      }
+
+      /* ---------- Top bar ---------- */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: rgba(10, 12, 18, 0.72);
+        backdrop-filter: saturate(140%) blur(10px);
+        -webkit-backdrop-filter: saturate(140%) blur(10px);
+        border-bottom: 1px solid var(--border-soft);
+      }
+      .topbar-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 60px;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text);
+      }
+      .brand:hover {
+        text-decoration: none;
+      }
+      .brand img {
+        width: 26px;
+        height: 26px;
+        display: block;
+      }
+      .brand .wordmark {
+        font-size: 18px;
+      }
+      .nav {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+        font-size: 14px;
+      }
+      .nav a {
+        color: var(--text-2);
+      }
+      .nav a:hover {
+        color: var(--text);
+        text-decoration: none;
+      }
+      .nav-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border-strong);
+        background: var(--surface-2);
+        color: var(--text);
+        font-weight: 500;
+        font-size: 13.5px;
+      }
+      .nav-cta:hover {
+        background: var(--surface-3);
+        text-decoration: none;
+      }
+      @media (max-width: 640px) {
+        .nav a:not(.nav-cta) {
+          display: none;
+        }
+      }
+
+      /* ---------- Hero ---------- */
+      .hero {
+        padding: 96px 0 72px;
+        text-align: center;
+      }
+      .hero-logo {
+        width: 112px;
+        height: 112px;
+        margin: 0 auto 24px;
+        display: block;
+        filter: drop-shadow(0 8px 24px rgba(34, 211, 238, 0.18));
+      }
+      .hero .wordmark {
+        font-size: 60px;
+        letter-spacing: -0.035em;
+      }
+      @media (max-width: 640px) {
+        .hero {
+          padding: 56px 0 48px;
+        }
+        .hero .wordmark {
+          font-size: 44px;
+        }
+        .hero-logo {
+          width: 88px;
+          height: 88px;
+        }
+      }
+      .hero-tag {
+        margin-top: 14px;
+        font-size: 14px;
+        color: var(--text-3);
+        font-family: var(--font-mono);
+        letter-spacing: 0.01em;
+      }
+      .hero-lede {
+        max-width: 720px;
+        margin: 28px auto 0;
+        font-size: 20px;
+        line-height: 1.5;
+        color: var(--text);
+        font-weight: 400;
+      }
+      .hero-lede strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .hero-sub {
+        max-width: 680px;
+        margin: 16px auto 0;
+        font-size: 15px;
+        color: var(--text-2);
+        line-height: 1.6;
+      }
+      .hero-ctas {
+        display: inline-flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 36px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 18px;
+        border-radius: 10px;
+        font-weight: 500;
+        font-size: 14.5px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        line-height: 1;
+        transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+      }
+      .btn:hover {
+        text-decoration: none;
+        transform: translateY(-1px);
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: var(--accent-contrast);
+        border-color: var(--accent);
+      }
+      .btn-primary:hover {
+        background: #67e3f1;
+        border-color: #67e3f1;
+      }
+      .btn-secondary {
+        background: var(--surface-2);
+        color: var(--text);
+        border-color: var(--border-strong);
+      }
+      .btn-secondary:hover {
+        background: var(--surface-3);
+      }
+      .btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* ---------- Install pill ---------- */
+      .install {
+        margin: 40px auto 0;
+        max-width: 640px;
+      }
+      .install-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--text-3);
+        margin-bottom: 8px;
+      }
+      .install-box {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: var(--shadow-md);
+        font-family: var(--font-mono);
+        font-size: 13.5px;
+        text-align: left;
+      }
+      .install-box .prompt {
+        color: var(--text-4);
+        user-select: none;
+      }
+      .install-box code {
+        color: var(--text);
+        flex: 1;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .copy-btn {
+        flex: 0 0 auto;
+        background: var(--surface-2);
+        color: var(--text-2);
+        border: 1px solid var(--border);
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        cursor: pointer;
+      }
+      .copy-btn:hover {
+        background: var(--surface-3);
+        color: var(--text);
+      }
+
+      /* ---------- Section ---------- */
+      section {
+        padding: 64px 0;
+        border-top: 1px solid var(--border-soft);
+      }
+      .section-eyebrow {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--accent-text);
+        margin-bottom: 10px;
+        font-weight: 500;
+      }
+      .section-title {
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        margin: 0 0 12px;
+      }
+      .section-intro {
+        font-size: 16px;
+        color: var(--text-2);
+        max-width: 680px;
+        margin: 0 0 36px;
+        line-height: 1.6;
+      }
+
+      /* ---------- Feature grid ---------- */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+      }
+      @media (max-width: 720px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 22px 22px 20px;
+        box-shadow: var(--shadow-md);
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .card-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+      }
+      .card-icon svg {
+        width: 16px;
+        height: 16px;
+      }
+      .card-title {
+        font-size: 15.5px;
+        font-weight: 600;
+        color: var(--text);
+        margin: 0;
+        letter-spacing: -0.005em;
+      }
+      .card-body {
+        font-size: 14px;
+        color: var(--text-2);
+        line-height: 1.55;
+      }
+
+      /* ---------- Security ---------- */
+      .secgrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        align-items: start;
+      }
+      @media (max-width: 800px) {
+        .secgrid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .check-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .check-list li {
+        display: flex;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-soft);
+        font-size: 14.5px;
+        color: var(--text);
+      }
+      .check-list li:last-child {
+        border-bottom: none;
+      }
+      .check-list li svg {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        color: var(--green);
+        margin-top: 2px;
+      }
+      .check-list strong {
+        font-weight: 600;
+        color: var(--text);
+      }
+      .check-list span {
+        color: var(--text-2);
+        font-weight: 400;
+      }
+      .secaside {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 22px;
+        box-shadow: var(--shadow-md);
+      }
+      .secaside h3 {
+        margin: 0 0 8px;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.005em;
+      }
+      .secaside p {
+        margin: 0;
+        font-size: 13.5px;
+        color: var(--text-2);
+        line-height: 1.6;
+      }
+      .secaside p + p {
+        margin-top: 12px;
+      }
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text-2);
+        border-radius: 999px;
+        font-size: 12px;
+        font-family: var(--font-mono);
+      }
+
+      /* ---------- Stack ---------- */
+      .stack-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+      }
+      .stack-cell {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 16px;
+      }
+      .stack-cell .label {
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--text-3);
+        margin-bottom: 4px;
+      }
+      .stack-cell .value {
+        font-size: 14px;
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      /* ---------- CTA banner ---------- */
+      .cta-banner {
+        margin: 0;
+        background: linear-gradient(140deg, rgba(34, 211, 238, 0.08), rgba(251, 146, 96, 0.04));
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 36px 32px;
+        text-align: center;
+        box-shadow: var(--shadow-lg);
+      }
+      .cta-banner h2 {
+        margin: 0 0 10px;
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      .cta-banner p {
+        margin: 0 0 24px;
+        color: var(--text-2);
+        font-size: 15px;
+      }
+
+      /* ---------- Footer ---------- */
+      footer {
+        padding: 36px 0 56px;
+        border-top: 1px solid var(--border-soft);
+        margin-top: 56px;
+        color: var(--text-3);
+        font-size: 13px;
+      }
+      .footer-inner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .footer-links {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+      .footer-links a {
+        color: var(--text-2);
+      }
+      .footer-links a:hover {
+        color: var(--text);
+        text-decoration: none;
+      }
+      .footer-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .footer-brand img {
+        width: 18px;
+        height: 18px;
+      }
+      .footer-brand .wordmark {
+        font-size: 14px;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--amber);
+        box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.18);
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="page topbar-inner">
+        <a class="brand" href="/">
+          <img src="assets/icon-256.png" alt="" />
+          <span class="wordmark"
+            ><span class="wordmark-prefix">Open</span
+            ><span class="wordmark-acronym">ADUC</span></span
+          >
+        </a>
+        <nav class="nav">
+          <a href="#features">Features</a>
+          <a href="#security">Security</a>
+          <a href="#install">Install</a>
+          <a
+            class="nav-cta"
+            href="https://github.com/OpenADUC/openaduc"
+            target="_blank"
+            rel="noopener"
+            aria-label="OpenADUC on GitHub"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M12 .5A11.5 11.5 0 0 0 .5 12 11.5 11.5 0 0 0 8.36 22.93c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.74.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.42-2.69 5.4-5.26 5.68.41.36.78 1.06.78 2.13v3.16c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"
+              />
+            </svg>
+            GitHub
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="page">
+      <!-- ---------- Hero ---------- -->
+      <section class="hero" style="border-top: 0; padding-top: 96px">
+        <img class="hero-logo" src="assets/icon-512.png" alt="OpenADUC" />
+        <h1>
+          <span class="wordmark"
+            ><span class="wordmark-prefix">Open</span
+            ><span class="wordmark-acronym">ADUC</span></span
+          >
+        </h1>
+        <div class="hero-tag">// Active Directory Users and Computers — in the browser</div>
+
+        <p class="hero-lede">
+          An <strong>open-source, self-hosted</strong> replacement for the legacy Microsoft "Active
+          Directory Users and Computers" MMC snap-in — with a real audit trail behind every change.
+        </p>
+        <p class="hero-sub">
+          Runs as a small container next to your domain controllers, talks to AD over LDAPS, and
+          gives sysadmins a fast, browser-based way to find users, reset passwords, unlock accounts,
+          manage groups, and review who changed what — without remoting into a Windows server.
+        </p>
+
+        <div class="hero-ctas">
+          <a class="btn btn-primary" href="#install">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+              <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Quick install
+          </a>
+          <a
+            class="btn btn-secondary"
+            href="https://github.com/OpenADUC/openaduc"
+            target="_blank"
+            rel="noopener"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M12 .5A11.5 11.5 0 0 0 .5 12 11.5 11.5 0 0 0 8.36 22.93c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.74.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.42-2.69 5.4-5.26 5.68.41.36.78 1.06.78 2.13v3.16c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5Z"
+              />
+            </svg>
+            View source
+          </a>
+        </div>
+
+        <div class="badge-row" style="justify-content: center; margin-top: 24px">
+          <span class="chip"><span class="status-dot"></span> beta — pre-1.0</span>
+          <span class="chip">BSL 1.1 → Apache-2.0 on 2030-05-09</span>
+          <span class="chip">Node 22 · PostgreSQL 16</span>
+        </div>
+      </section>
+
+      <!-- ---------- Features ---------- -->
+      <section id="features">
+        <div class="section-eyebrow">What's in the box</div>
+        <h2 class="section-title">Everything ADUC did — plus what it didn't.</h2>
+        <p class="section-intro">
+          Built for small-to-mid-size IT teams that want a UI more responsive than the MMC, an audit
+          trail more complete than the Windows event log, and a deployment story simpler than
+          RSAT-on-a-jump-box.
+        </p>
+
+        <div class="grid">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21a8 8 0 0 1 16 0" />
+                </svg>
+              </span>
+              <h3 class="card-title">Users</h3>
+            </div>
+            <p class="card-body">
+              Search, view, and edit attributes. Reset passwords, unlock and enable/disable
+              accounts, move between OUs — all from a fast typeahead, no MMC console required.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="8" cy="9" r="3.2" />
+                  <circle cx="16" cy="9" r="3.2" />
+                  <path d="M2.5 19a5.5 5.5 0 0 1 11 0M10.5 19a5.5 5.5 0 0 1 11 0" />
+                </svg>
+              </span>
+              <h3 class="card-title">Groups &amp; memberships</h3>
+            </div>
+            <p class="card-body">
+              Browse members and memberOf relationships. Add and remove members inline. See nested
+              groups expanded without clicking through five property dialogs.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="12" rx="2" />
+                  <path d="M8 20h8M12 16v4" />
+                </svg>
+              </span>
+              <h3 class="card-title">Computers &amp; OUs</h3>
+            </div>
+            <p class="card-body">
+              Find a computer object, see where it lives in the OU tree, disable it, or browse the
+              tree directly. Group Policy: list GPOs, inspect linked OUs and enabled CSEs.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 6h16M4 12h16M4 18h10" />
+                </svg>
+              </span>
+              <h3 class="card-title">Append-only audit log</h3>
+            </div>
+            <p class="card-body">
+              Every write is logged with actor, target, before/after, and step-up status. Database
+              triggers reject <code style="font-family: var(--font-mono); font-size: 0.9em">UPDATE</code>,
+              <code style="font-family: var(--font-mono); font-size: 0.9em">DELETE</code>, and
+              <code style="font-family: var(--font-mono); font-size: 0.9em">TRUNCATE</code> on
+              audit rows — even a compromised app can't rewrite history.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 3 4 7v5c0 5 3.5 8.5 8 9 4.5-.5 8-4 8-9V7l-8-4Z" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+              </span>
+              <h3 class="card-title">Step-up re-auth on every write</h3>
+            </div>
+            <p class="card-body">
+              Mutating calls require re-entering the AD password. The elevated session is
+              short-lived (default 60 min) and password material lives only in process memory.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <span class="card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12h4l3-7 4 14 3-7h4" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </span>
+              <h3 class="card-title">Dashboard &amp; first-run wizard</h3>
+            </div>
+            <p class="card-body">
+              Sync status, recent activity, and locked-account counts at a glance. A guided
+              first-run wizard handles directory connection, the recovery account, and role
+              bootstrap.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- Security ---------- -->
+      <section id="security">
+        <div class="section-eyebrow">Security posture</div>
+        <h2 class="section-title">Treated like the tier-0 tool it is.</h2>
+        <p class="section-intro">
+          OpenADUC sits in front of Active Directory and writes to it on behalf of operators. The
+          defaults assume that.
+        </p>
+
+        <div class="secgrid">
+          <ul class="check-list">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="m5 12 5 5L20 7" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <div>
+                <strong>LDAPS only.</strong>
+                <span>
+                  Outbound TCP/636 to your DCs. Plain LDAP (389) is not supported, by design.
+                </span>
+              </div>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="m5 12 5 5L20 7" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <div>
+                <strong>Live AD bind on every sign-in.</strong>
+                <span>
+                  No application-layer password store outside the local break-glass recovery
+                  account.
+                </span>
+              </div>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="m5 12 5 5L20 7" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <div>
+                <strong>Encrypted secrets at rest.</strong>
+                <span>
+                  Service-account passwords, Entra client secrets, and Teams webhooks are
+                  AES-256-GCM encrypted with a key you back up alongside your database.
+                </span>
+              </div>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="m5 12 5 5L20 7" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <div>
+                <strong>You terminate TLS.</strong>
+                <span>
+                  The bundled web container speaks plain HTTP on :8080 and expects a real reverse
+                  proxy (nginx, Caddy, Traefik) in front.
+                </span>
+              </div>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="m5 12 5 5L20 7" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <div>
+                <strong>Append-only audit at the DB layer.</strong>
+                <span>
+                  Postgres triggers enforce immutability — the app can't UPDATE or DELETE audit
+                  rows, period.
+                </span>
+              </div>
+            </li>
+          </ul>
+
+          <aside class="secaside">
+            <h3>Recommended placement</h3>
+            <p>
+              Keep OpenADUC on your internal network — management VLAN, jump host, VPN, or
+              zero-trust overlay (Tailscale, Twingate, Cloudflare Access). You already restrict who
+              can run RSAT or remote into a DC; apply the same posture here.
+            </p>
+            <p>
+              If you must expose it publicly, gate it behind an identity-aware proxy enforcing MFA
+              (Authentik, Keycloak, Cloudflare Access, Pomerium, oauth2-proxy, Entra Application
+              Proxy with Conditional Access) — defence in depth, not SSO replacement.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ---------- Install ---------- -->
+      <section id="install">
+        <div class="section-eyebrow">Quick install</div>
+        <h2 class="section-title">One line on a Linux host with Docker.</h2>
+        <p class="section-intro">
+          The installer prompts for an install directory, asks whether to use bundled Postgres or an
+          existing one, generates strong secrets, and brings the stack up. Then open the printed
+          URL to run the first-run wizard.
+        </p>
+
+        <div class="install">
+          <div class="install-label">Bash</div>
+          <div class="install-box">
+            <span class="prompt">$</span>
+            <code id="install-cmd">curl -fsSL https://openaduc.com/install.sh | bash</code>
+            <button class="copy-btn" id="copy-btn" type="button" aria-label="Copy install command">
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <div class="stack-row" style="margin-top: 40px">
+          <div class="stack-cell">
+            <div class="label">Host</div>
+            <div class="value">64-bit Linux · 2 vCPU · 2 GB RAM minimum</div>
+          </div>
+          <div class="stack-cell">
+            <div class="label">Runtime</div>
+            <div class="value">Docker Engine 24+ with Compose v2</div>
+          </div>
+          <div class="stack-cell">
+            <div class="label">Database</div>
+            <div class="value">Embedded Postgres 16, or bring your own (14+)</div>
+          </div>
+          <div class="stack-cell">
+            <div class="label">Directory</div>
+            <div class="value">LDAPS-reachable AD domain controller</div>
+          </div>
+        </div>
+
+        <p style="margin-top: 24px; color: var(--text-3); font-size: 13.5px">
+          Prefer the manual path? See
+          <a
+            href="https://github.com/OpenADUC/openaduc/blob/main/docs/installation.md"
+            target="_blank"
+            rel="noopener"
+            >docs/installation.md</a
+          >
+          for clone-edit-env-compose-up.
+        </p>
+      </section>
+
+      <!-- ---------- Stack ---------- -->
+      <section>
+        <div class="section-eyebrow">Stack</div>
+        <h2 class="section-title">Boring, modern, auditable.</h2>
+        <p class="section-intro">
+          Nothing exotic. Easy to read, easy to fork, easy to operate.
+        </p>
+        <div class="stack-row">
+          <div class="stack-cell">
+            <div class="label">Backend</div>
+            <div class="value">Node.js 22 · TypeScript · Fastify</div>
+          </div>
+          <div class="stack-cell">
+            <div class="label">Directory</div>
+            <div class="value">ldapts over LDAPS</div>
+          </div>
+          <div class="stack-cell">
+            <div class="label">Database</div>
+            <div class="value">PostgreSQL 16 · Kysely · Knex</div>
+          </div>
+          <div class="stack-cell">
+            <div class="label">Frontend</div>
+            <div class="value">Vue 3 · Vite · PrimeVue · Tailwind v4 · Pinia</div>
+          </div>
+          <div class="stack-cell">
+            <div class="label">Tooling</div>
+            <div class="value">pnpm · ESLint · Prettier · Vitest · Playwright</div>
+          </div>
+          <div class="stack-cell">
+            <div class="label">License</div>
+            <div class="value">BSL 1.1 → Apache-2.0 on 2030-05-09</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- CTA ---------- -->
+      <section style="border-top: 0">
+        <div class="cta-banner">
+          <h2>Pre-1.0 — kick the tires.</h2>
+          <p>
+            Suitable for evaluation, lab use, and adventurous early adopters running on a single
+            small or mid-size domain. Bug reports and PRs welcome.
+          </p>
+          <div class="hero-ctas" style="margin-top: 0">
+            <a
+              class="btn btn-primary"
+              href="https://github.com/OpenADUC/openaduc"
+              target="_blank"
+              rel="noopener"
+              >Star on GitHub</a
+            >
+            <a
+              class="btn btn-secondary"
+              href="https://github.com/OpenADUC/openaduc/issues"
+              target="_blank"
+              rel="noopener"
+              >Report an issue</a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="page footer-inner">
+        <div class="footer-brand">
+          <img src="assets/icon-256.png" alt="" />
+          <span class="wordmark"
+            ><span class="wordmark-prefix">Open</span
+            ><span class="wordmark-acronym">ADUC</span></span
+          >
+          <span style="color: var(--text-4); margin-left: 8px; font-size: 12px">
+            © <span id="year">2026</span>
+          </span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/OpenADUC/openaduc" target="_blank" rel="noopener">GitHub</a>
+          <a
+            href="https://github.com/OpenADUC/openaduc/blob/main/docs/installation.md"
+            target="_blank"
+            rel="noopener"
+            >Docs</a
+          >
+          <a
+            href="https://github.com/OpenADUC/openaduc/blob/main/SECURITY.md"
+            target="_blank"
+            rel="noopener"
+            >Security</a
+          >
+          <a
+            href="https://github.com/OpenADUC/openaduc/blob/main/LICENSE"
+            target="_blank"
+            rel="noopener"
+            >License</a
+          >
+          <a
+            href="https://github.com/OpenADUC/openaduc/issues"
+            target="_blank"
+            rel="noopener"
+            >Issues</a
+          >
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // Copy-to-clipboard for the install command.
+      (function () {
+        var btn = document.getElementById('copy-btn');
+        var cmd = document.getElementById('install-cmd');
+        if (!btn || !cmd) return;
+        btn.addEventListener('click', function () {
+          var text = cmd.textContent || '';
+          var done = function () {
+            var prev = btn.textContent;
+            btn.textContent = 'Copied';
+            setTimeout(function () {
+              btn.textContent = prev;
+            }, 1400);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, done);
+          } else {
+            var r = document.createRange();
+            r.selectNode(cmd);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(r);
+            try {
+              document.execCommand('copy');
+            } catch (_) {}
+            sel.removeAllRanges();
+            done();
+          }
+        });
+      })();
+
+      // Current year.
+      var y = document.getElementById('year');
+      if (y) y.textContent = String(new Date().getFullYear());
+    </script>
+  </body>
+</html>
