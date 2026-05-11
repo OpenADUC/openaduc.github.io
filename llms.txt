@@ -1,0 +1,67 @@
+# OpenADUC
+
+> OpenADUC is a free, open-source, self-hosted **web-based replacement for the Microsoft Active Directory Users and Computers (ADUC) MMC snap-in**. It runs as a small Docker container on Linux, talks to domain controllers over LDAPS, and gives sysadmins a browser-based way to manage AD users, groups, computers, and OUs — with an append-only audit trail behind every change. No Windows server or RSAT required.
+
+OpenADUC is aimed at small-to-mid-size IT teams who want a UI more responsive than the MMC, an audit trail more complete than the Windows event log, and a deployment story simpler than RSAT-on-a-jump-box. It is pre-1.0 (beta) but in active development.
+
+Common search intents this project answers:
+
+- "open-source ADUC alternative" / "ADUC replacement"
+- "web-based Active Directory management"
+- "browser-based AD admin tool" / "AD admin tool for Linux"
+- "reset AD password from browser"
+- "MMC snap-in replacement" / "RSAT alternative"
+- "self-hosted Active Directory web UI"
+- "Active Directory audit log tool"
+
+## Primary resources
+
+- [Landing page](https://www.openaduc.com/): full product overview, features, security posture, install instructions, FAQ
+- [GitHub repository](https://github.com/OpenADUC/openaduc): source code, issue tracker, releases
+- [GitHub organization](https://github.com/OpenADUC): all OpenADUC repositories
+- [Quick install](https://www.openaduc.com/#install): one-line `curl | bash` installer for Linux + Docker
+- [llms-full.txt](https://www.openaduc.com/llms-full.txt): the full landing-page content as plain text, for context retrieval
+
+## Documentation (in the source repo)
+
+- [Installation](https://github.com/OpenADUC/openaduc/blob/main/docs/installation.md): one-line install, manual install, first-run wizard
+- [Configuration](https://github.com/OpenADUC/openaduc/blob/main/docs/configuration.md): every environment variable, defaults, and meaning
+- [Architecture](https://github.com/OpenADUC/openaduc/blob/main/docs/architecture.md): request flow, data layer, directory provider abstraction
+- [Security](https://github.com/OpenADUC/openaduc/blob/main/docs/security.md): threat model, capabilities, step-up auth, audit, AD-specific risks
+- [Development](https://github.com/OpenADUC/openaduc/blob/main/docs/development.md): local dev workflow, prerequisites, common tasks
+- [README](https://github.com/OpenADUC/openaduc/blob/main/README.md): canonical product description
+- [SECURITY.md](https://github.com/OpenADUC/openaduc/blob/main/SECURITY.md): private vulnerability reporting
+- [LICENSE (BSL 1.1)](https://github.com/OpenADUC/openaduc/blob/main/LICENSE): Business Source License 1.1, converts to Apache-2.0 on 2030-05-09
+
+## Capabilities
+
+- Search and edit AD users; reset passwords; unlock, enable, disable accounts; move users between OUs
+- Browse and edit group memberships (members and memberOf); inspect nested groups
+- View and disable computer objects; locate them in the OU tree
+- Browse the OU tree
+- List Group Policy Objects (GPOs), inspect linked OUs and enabled client-side extensions
+- View domain default and fine-grained password policies
+- Append-only audit log of every write (actor, target, before/after, step-up status) — enforced by PostgreSQL triggers
+- Step-up re-authentication required on every mutating call
+- AES-256-GCM encryption for stored secrets (service-account passwords, Entra client secrets, Teams webhooks)
+
+## Requirements
+
+- 64-bit Linux host (x86_64 or arm64), Debian 13 or Ubuntu 24.04 LTS recommended
+- Docker Engine 24+ with the Compose v2 plugin
+- 2 vCPU / 2 GB RAM minimum (sized for ~10k AD objects in cache); 1 vCPU / 1 GB RAM works for very small directories
+- PostgreSQL: embedded Postgres 16 container (default) or external PostgreSQL 14+ that you operate
+- Active Directory: a domain controller reachable over LDAPS (TCP/636); plain LDAP/389 is not supported
+- A reverse proxy (nginx, Caddy, Traefik, …) for TLS termination — the bundled web container speaks plain HTTP on port 8080
+
+## Stack
+
+- Backend: Node.js 22, TypeScript, Fastify
+- Directory access: ldapts over LDAPS
+- Database: PostgreSQL 16, Kysely (queries), Knex (migrations)
+- Frontend: Vue 3, Vite, PrimeVue, Tailwind v4, Pinia
+- Tooling: pnpm workspaces, ESLint, Prettier, Vitest, Playwright
+
+## License
+
+Business Source License 1.1 — free to run in production for your own organization at no cost. The license automatically converts to Apache License 2.0 on 2030-05-09. The only restriction is that offering OpenADUC (or a substantial portion of its functionality) as a hosted service to third parties is not permitted under the BSL grant.

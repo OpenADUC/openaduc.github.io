@@ -1,0 +1,160 @@
+# OpenADUC — Open-source, web-based Active Directory Users and Computers replacement
+
+URL: https://www.openaduc.com/
+Source code: https://github.com/OpenADUC/openaduc
+License: Business Source License 1.1, converts to Apache-2.0 on 2030-05-09
+Status: pre-1.0 (beta), in active development
+
+## Summary
+
+OpenADUC is a free, open-source, self-hosted web application that replaces the legacy Microsoft "Active Directory Users and Computers" (ADUC) MMC snap-in. It runs as a small Docker container on Linux, talks to your existing Windows domain controllers over LDAPS (TCP/636), and gives sysadmins a fast, browser-based way to find users, reset passwords, unlock accounts, manage group memberships, browse OUs, and review what changed and who did it — without remoting into a Windows server, installing RSAT, or maintaining a domain-joined admin workstation.
+
+It is built for small-to-mid-size IT teams that want a UI more responsive than the MMC, an audit trail more complete than the Windows event log, and a deployment story simpler than RSAT-on-a-jump-box.
+
+## What it replaces
+
+ADUC = Active Directory Users and Computers, the Microsoft Management Console (MMC) snap-in that Windows admins have used for decades. The traditional way to use it is:
+
+1. Sit at a domain-joined Windows machine, or remote into a jump host that has RSAT (Remote Server Administration Tools) installed.
+2. Open the MMC console, load the ADUC snap-in.
+3. Click through property dialogs to find a user, reset a password, edit attributes, manage memberships, etc.
+
+OpenADUC replaces all of that with a browser tab pointed at a small Linux-hosted web app.
+
+## What's in the box (current capabilities)
+
+- **Dashboard** — sync status, recent activity, locked-account counts.
+- **Users** — search, view, edit attributes; reset passwords; unlock; enable/disable; move between OUs.
+- **Groups** — search; view members and memberOf relationships; add/remove members; inspect nested groups.
+- **Computers** — search, view, disable, locate in the OU tree.
+- **OUs** — browse the directory tree.
+- **Group Policy** — list GPOs; inspect linked OUs; view enabled client-side extensions (CSEs).
+- **Password policy** — view domain default and fine-grained policies.
+- **Audit** — every write is logged with actor, target, before/after, and step-up status.
+- **Setup wizard** — first-run flow for directory connection, recovery account, and role bootstrap.
+
+## Security posture
+
+OpenADUC sits in front of Active Directory and writes to it on behalf of operators. A compromised OpenADUC session can do anything its operator's role allows in AD — reset passwords, unlock accounts, edit attributes, change group memberships. The defaults assume that:
+
+- **LDAPS-only.** Outbound TCP/636 to your DCs; plain LDAP (389) is not supported.
+- **Live AD bind on every sign-in.** No application-layer password store outside the local break-glass recovery account.
+- **Step-up re-authentication on every write.** Mutating calls require re-entering the AD password; elevated session is short-lived (default 60 minutes); password material lives only in process memory.
+- **Append-only audit log.** PostgreSQL triggers reject `UPDATE`, `DELETE`, and `TRUNCATE` on `audit_events` — even a compromised app cannot silently rewrite history.
+- **Encrypted secrets at rest.** Service-account passwords, Entra client secrets, and Teams webhooks are AES-256-GCM encrypted with `ENCRYPTION_KEY`. Back this key up alongside your database backups.
+- **No TLS in the box.** The bundled web container speaks plain HTTP on `:8080`; you terminate TLS in front (nginx, Caddy, Traefik, or an IdP proxy).
+- **No application-layer MFA today.** Gate with a proxy if you must expose it publicly.
+
+### Recommended placement
+
+Keep OpenADUC on your internal network. Reach it from your management VLAN, a jump host, an existing VPN, or a zero-trust overlay (Tailscale, Twingate, Cloudflare Access). You already restrict who can run RSAT or remote into a DC — apply the same posture here.
+
+If you must expose it publicly, gate it behind an identity-aware proxy enforcing MFA before requests reach OpenADUC. Concrete options: Authentik, Keycloak (with TOTP / WebAuthn / passkeys), Cloudflare Access, Pomerium, oauth2-proxy, or Microsoft Entra Application Proxy with Conditional Access. OpenADUC does not (yet) consume proxy-asserted identity headers; this is defence in depth, not SSO replacement.
+
+## Requirements
+
+### Host
+
+- 64-bit Linux (x86_64 or arm64). Debian 13 or Ubuntu 24.04 LTS recommended.
+- CPU: 2 vCPU minimum, 4 vCPU recommended.
+- RAM: 2 GB minimum, 4 GB recommended.
+- Disk: 5 GB (external DB) or 10 GB (embedded Postgres) minimum.
+- Docker Engine 24+ with the Compose v2 plugin.
+
+The default sizing comfortably covers ~10,000 users / groups / computers / OUs in cache. Very small directories (a few hundred users) work on 1 vCPU / 1 GB RAM, especially with external Postgres. For directories well past 10k objects, give Postgres more RAM or move it off-host.
+
+### Network
+
+- Outbound TCP/636 (LDAPS) to your domain controllers.
+- Inbound TCP/443 for the web UI, terminated by a reverse proxy you provide.
+- No outbound internet access is required at runtime once container images are pulled.
+
+### Database
+
+PostgreSQL only — no MySQL, SQL Server, or SQLite. Two deployment options:
+
+- **Embedded (default).** Installer runs a Postgres 16 container alongside the app with a Docker volume.
+- **External.** Point OpenADUC at an existing Postgres (on-prem, AWS RDS, Google Cloud SQL, Azure Database for PostgreSQL, Supabase). Requirements: PostgreSQL 14+ (16 recommended), a dedicated database, a role with `CREATE` on it, and the `pgcrypto` and `pg_trgm` extensions available.
+
+### Active Directory
+
+- A domain controller reachable over LDAPS, with a certificate the host trusts.
+- A service account for OpenADUC. Read-only is enough for cache sync; password reset, unlock, and attribute writes require delegated permissions on the OUs you intend to manage. The first-run wizard walks you through this.
+
+## Quick install
+
+One line on a Linux host with Docker:
+
+```
+curl -fsSL https://openaduc.com/install.sh | bash
+```
+
+The installer prompts for an install directory, asks whether to use the bundled Postgres or an existing one, generates strong secrets, and brings the stack up. Open the printed URL to run the first-run setup wizard.
+
+For the manual path (clone, edit env, `docker compose up`), see docs/installation.md in the repo.
+
+## Hardening checklist
+
+- Restrict the AD security group that grants `admin` to a small set of accounts that already use MFA at the AD/Entra layer.
+- Delegate the service account's write permissions to only the OUs OpenADUC manages, not domain-wide.
+- Use a strong, unique passphrase for the local recovery account and store it offline.
+- Back up `.env` (which holds `ENCRYPTION_KEY` and `SESSION_COOKIE_SECRET`) alongside your database backups.
+- Forward `audit_events` to a SIEM if you need long-term, off-host retention.
+
+## Stack
+
+- **Backend:** Node.js 22, TypeScript, Fastify.
+- **Directory access:** ldapts over LDAPS.
+- **Database:** PostgreSQL 16, Kysely (queries), Knex (migrations).
+- **Background work:** in-process scheduler with per-directory sync tasks (delta + periodic full sync).
+- **Frontend:** Vue 3, Vite, PrimeVue, Tailwind v4, Pinia.
+- **Tooling:** pnpm workspaces, ESLint, Prettier, Vitest, Playwright.
+
+## License
+
+Business Source License 1.1. You may run OpenADUC in production for your own organization at no cost. Offering OpenADUC (or a substantial portion of its functionality) as a hosted service to third parties is not permitted under the BSL grant. The license converts to Apache License 2.0 on 2030-05-09 — four years after the first public release.
+
+## Roadmap toward v1.0
+
+- Bulk operations
+- Scheduled reports
+- Integrations panel (Entra ID, SCIM)
+- Richer Group Policy editing
+
+## FAQ
+
+**What is OpenADUC?**
+An open-source, self-hosted web application that replaces the Microsoft Active Directory Users and Computers (ADUC) MMC snap-in. It runs as a small Docker container on Linux, talks to AD over LDAPS, and gives sysadmins a browser-based UI for AD management with a full audit trail.
+
+**What does ADUC stand for?**
+Active Directory Users and Computers — the Microsoft Management Console (MMC) snap-in for managing AD objects.
+
+**Is OpenADUC free and open source?**
+Yes. Business Source License 1.1, free for production use within your own organization, converts to Apache-2.0 on 2030-05-09.
+
+**Does OpenADUC need a Windows server to run?**
+No. It runs on Linux as Docker containers and talks to your existing Windows DCs over LDAPS. No RSAT, no domain-joined Windows admin workstation required.
+
+**Can OpenADUC reset Active Directory passwords from a browser?**
+Yes — and unlock accounts, enable/disable, edit attributes, move users between OUs. Every write requires step-up re-authentication with the operator's AD password and is recorded in an append-only audit log.
+
+**What database does OpenADUC use?**
+PostgreSQL only — 14 or newer, 16 recommended. Embedded option provided; external Postgres (on-prem, RDS, Cloud SQL, Azure, Supabase) supported.
+
+**How is OpenADUC different from running the ADUC MMC snap-in remotely?**
+Browser-based, runs on Linux, no RSAT, an audit log enforced at the database layer, and deployable on a single Linux host with Docker.
+
+**Does OpenADUC support Microsoft Entra ID (Azure AD)?**
+On-prem AD over LDAPS today. Entra ID integration is on the v1.0 roadmap. An identity-aware proxy in front can already enforce Entra-based MFA at the network boundary.
+
+**How large a directory can OpenADUC handle?**
+Default sizing comfortably covers ~10,000 AD objects in cache on a 2 vCPU / 2 GB RAM host. Smaller directories run on less; larger ones benefit from giving Postgres more RAM or moving it off-host.
+
+## Links
+
+- Website: https://www.openaduc.com/
+- Source code: https://github.com/OpenADUC/openaduc
+- GitHub organization: https://github.com/OpenADUC
+- Issues: https://github.com/OpenADUC/openaduc/issues
+- License: https://github.com/OpenADUC/openaduc/blob/main/LICENSE
+- Security policy: https://github.com/OpenADUC/openaduc/blob/main/SECURITY.md
